@@ -1,4 +1,3 @@
-#include <gsl/gsl_linalg.h>
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -7,17 +6,18 @@
 #include <cmath>
 
 typedef double float_T;
+typedef std::vector<float_T> vec_T;
 
 struct matrix
 {
-    std::vector<float_T> t;
-    std::vector<float_T> x;
+    vec_T t;
+    vec_T x;
 };
 
 class numeric_method
 {
 private:
-    float_T D;
+    float_T D; // Noise intensity
 public:
     numeric_method() { D = 1; }
     numeric_method(float_T D_) { D = D_; }
@@ -25,7 +25,8 @@ public:
     void set_dispersion(float_T D_) { D = D_; }
     float_T get_dispersion() { return D; }
 
-    matrix euler_method(float_T eps = pow(10, -6), float_T h = pow(10, -3));
-    matrix stoch_euler_method(size_t N = 1000);
-    matrix stoch_hyun_method(size_t N = 1000);
+    matrix euler_method(float_T RelTol = 1e-3, float_T AbsTol = 1e-6);
+    void euler_maruyama_method(matrix& sol, size_t N);
+    void hyun_method(matrix& sol, size_t N);
+    void stoch_rk4_method(matrix& sol, size_t N);
 };

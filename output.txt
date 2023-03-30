@@ -1,2 +1,2 @@
-solve time = 2344
-4001
+solve time = 17
+40001
