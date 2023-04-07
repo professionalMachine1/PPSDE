@@ -1,6 +1,7 @@
 #include "num_methods.h"
 #include "matplotlibcpp.h"
 #include <chrono>
+#include <omp.h>
 
 namespace plt = matplotlibcpp;
 
@@ -44,32 +45,45 @@ int main()
     auto start_time = std::chrono::steady_clock::now();
 
     // Объявляем переменные
-    matrix sol = { vec_T(n + 1), vec_T(n + 1) }, cum_sol = sol;
-    numeric_method solver(D);
+    matrix cum_sol = { vec_T(n + 1), vec_T(n + 1) };
 
     // Получаем реализации и суммируем их
     // Последовательная версия
-    for (size_t i = 0; i < N; ++i) 
-    {
-        solver.hyun_method(sol, n);
-        cum_sol.x += sol.x;
-    }
+    // matrix sol = { vec_T(n + 1), vec_T(n + 1) };
+    // numeric_method solver(D);
+
+    // for (size_t i = 0; i < N; ++i) 
+    // {
+    //     solver.hyun_method(sol, n);
+    //     cum_sol.x += sol.x;
+    // }
+    // cum_sol.t = sol.t; // Устанавливаем время в общее решение
+    // // Строим решение без шума для проверки сходимости
+    // sol = matrix();
+    // sol = solver.euler_method(1e-6, 1e-6);
     
     // Параллельная версия
-    // #pragma omp parallel private(sol, solver)
-    // {
-    //     vec_T cur_cum_sol = vec_T(n + 1);
-    //     #pragma omp for
-    //     for (size_t i = 0; i < N; ++i) 
-    //     {
-    //         solver.hyun_method(sol, n);
-    //         cur_cum_sol += sol.x;
-    //     }
-    //     #pragma omp critical
-    //     cum_sol.x += cur_cum_sol;
-    // }
+    #pragma omp parallel
+    {
+        vec_T cur_cum_sol(n + 1);
+        numeric_method solver(D);
+        matrix sol = { vec_T(n + 1), vec_T(n + 1) };
+        #pragma omp for
+        for (int32_t i = 0; i < N; ++i) 
+        {
+            solver.hyun_method(sol, n);
+            cur_cum_sol += sol.x;
+        }
+        #pragma omp critical
+        cum_sol.x += cur_cum_sol;
+        #pragma omp single
+        cum_sol.t = sol.t;
+    }
+    // Строим решение без шума для проверки сходимости
+    matrix sol = matrix();
+    numeric_method solver(D);
+    sol = solver.euler_method(1e-6, 1e-6);
 
-    cum_sol.t = sol.t; // Устанавливаем время в общее решение
     cum_sol.x *= (1.0 / N); // Усредняем реализации
 
     // Засекаем время окончания расчёиа
@@ -79,12 +93,8 @@ int main()
     std::ofstream output("output.txt");
     output << "solve time = " << std::chrono::duration_cast<
         std::chrono::milliseconds>(end_time - start_time).count() << "\n";
-    output << sol.t.size() << "\n";
+    output << cum_sol.t.size() << "\n";
     output.close();
-
-    // Строим решение без шума для проверки сходимости
-    sol = matrix();
-    sol = solver.euler_method(1e-6, 1e-6);
 
     // Строим график усреднённых реализаций
     plt::named_plot("~x(t)", cum_sol.t, cum_sol.x, "-");
