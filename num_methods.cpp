@@ -1,30 +1,26 @@
 #include "num_methods.h"
 
-matrix numeric_method::euler_method(float_T RelTol, float_T AbsTol)
+void numeric_method::euler_method(matrix& sol, size_t N, float_T a, float_T x0, 
+        float_T tmin, float_T tmax, float_T RelTol, float_T AbsTol)
 {
     // Инициализация
     size_t p = 1; // p - порядок метода
 
-    float_T a; // Параметр
-    float_T h = 1e-3, h_2; // Шаги
+    float_T t, tprev; // Время
     float_T x, xprev, X; // Координаты
-    float_T tmin, tmax, t, tprev; // Время
+    float_T h = (tmax - tmin) / (1.0 * N), h_2; // Шаги
     float_T eps_cor = 1 / (pow(2, p + 1)), s_coef = 1 / (pow(2, p) - 1), eps, S; // Контроль погрешности
 
-    // Контейнер для результатов решения
-    matrix sol;
-
-    // Ввод
-    std::ifstream input("input.txt");
-    input >> a >> x >> tmin >> tmax; // Параметр, начальное значение, интервал интегрирования
-    input.close();
+    sol.x[0] = x0;
+    sol.t[0] = tmin;
+    for (size_t i = 1; i <= N; ++i) {
+        sol.t[i] = sol.t[i - 1] + h;
+    }
 
     // Расчет
-    t = tprev = tmin;
-    sol.t.push_back(t); // Сохраняем начальную точку
-    sol.x.push_back(x); // Сохраняем начальную точку
-
-    while (t < tmax)
+    x = x0;
+    t = tmin;
+    for (size_t i = 1; i <= N; )
     {
         // Запоминаем текущие значения
         X = x;
@@ -49,50 +45,28 @@ matrix numeric_method::euler_method(float_T RelTol, float_T AbsTol)
         else // Погрешность хороша, сохраняем решение
         {
             t += h; // Увеличиваем время
-            sol.t.push_back(t); // Сохраняем результат
-            sol.x.push_back(x); // Сохраняем результат
+            if (t >= sol.t[i]) { // Сохраняем результат
+                sol.x[i] = xprev + (sol.t[i] - tprev) * (a - sin(xprev));
+                // std::cout << sol.x[i] << "\n";
+                ++i;
+            }
             if (S < eps * eps_cor) // Погрешность слишком хороша, уменьшаем шаг
                 h *= 2;
         }
     }
-
-    if (t > tmax) // Если перешли через границу, выкидываем последнюю точку и считаем прямо на границе
-    {
-        sol.t.pop_back();
-        sol.x.pop_back();
-        
-        t = tprev;
-        x = X = xprev;
-        h = tmax - t;
-
-        h_2 = h * 0.5;
-        x += h * (a - sin(x));
-        X += h_2 * (a - sin(X));
-        X += h_2 * (a - sin(X));
-        t += h;
-
-        sol.t.push_back(t);
-        sol.x.push_back(x);
-    }
-
-    return sol;
 }
 
-void numeric_method::euler_maruyama_method(matrix& sol, size_t N)
+void numeric_method::euler_maruyama_method(matrix& sol, size_t N, float_T a, 
+    float_T x0, float_T tmin, float_T tmax)
 {
-    float_T x, a; // Координата, параметр
+    float_T x = x0; // Координата, параметр
     float_T sqrt_hd; // Спец. константа
-    float_T h, t, tmin, tmax; // Шаг интегрирования, время, интервал интегрирования
+    float_T h, t; // Шаг интегрирования, время, интервал интегрирования
 
     // Создаём генератор случайных чисел со стандартным нормальным распределением
     std::random_device rd;
-    std::mt19937 gen(rd());
-    std::normal_distribution<float_T> norm_dist(0, 1);
-
-    // Ввод данных
-    std::ifstream input("input.txt");
-    input >> a >> x >> tmin >> tmax; // Параметр, начальное значение, интервал интегрирования
-    input.close();
+    boost::random::mt19937 gen(rd());
+    boost::normal_distribution<float_T> norm_dist(0, 1);
 
     // Расчет
     t = tmin;
@@ -101,7 +75,7 @@ void numeric_method::euler_maruyama_method(matrix& sol, size_t N)
     h = (tmax - tmin) / N, sqrt_hd = sqrt(h * D);
 
     // Вектор случайных величин
-    vec_T Z1(N + 1);
+    vec_T Z1 = new float_T[N + 1];
     for (size_t i = 1; i <= N; ++i) {
         Z1[i] = sqrt_hd * norm_dist(gen);
     }
@@ -116,21 +90,17 @@ void numeric_method::euler_maruyama_method(matrix& sol, size_t N)
     }
 }
 
-void numeric_method::hyun_method(matrix& sol, size_t N)
+void numeric_method::hyun_method(matrix& sol, size_t N, float_T a, 
+    float_T x0, float_T tmin, float_T tmax)
 {
-    float_T x, a; // Координата, параметр
+    float_T x = x0; // Координата, параметр
     float_T sqrt_hd, as; // Спец. константа, спец. выражение
-    float_T h, h_2, t, tmin, tmax; // Шаг интегрирования, его половина, время, интервал интегрирования
+    float_T h, h_2, t; // Шаг интегрирования, его половина, время, интервал интегрирования
 
     // Создаём генератор случайных чисел со стандартным нормальным распределением
     std::random_device rd;
-    std::mt19937 gen(rd());
-    std::normal_distribution<float_T> norm_dist(0, 1);
-
-    // Ввод
-    std::ifstream input("input.txt");
-    input >> a >> x >> tmin >> tmax; // Параметр, начальное значение, интервал интегрирования
-    input.close();
+    boost::random::mt19937 gen(rd());
+    boost::normal_distribution<float_T> norm_dist(0, 1);
 
     // Расчет
     t = tmin;
@@ -139,7 +109,7 @@ void numeric_method::hyun_method(matrix& sol, size_t N)
     h = (tmax - tmin) / N, h_2 = h * 0.5, sqrt_hd = sqrt(h * D);
 
     // Вектор случайных величин
-    vec_T Z1(N + 1);
+    vec_T Z1 = new float_T[N + 1];
     for (size_t i = 1; i <= N; ++i) {
         Z1[i] = sqrt_hd * norm_dist(gen);
     }
@@ -147,29 +117,28 @@ void numeric_method::hyun_method(matrix& sol, size_t N)
     for (size_t i = 1; i <= N; ++i)
     {
         as = a - sin(x);
+        // x += h_2 * (as + a - sin(x + Z1[i])) / (1 - h_2 * cos(x)) + Z1[i];
         x += h_2 * (as + a - sin(x + h * as + Z1[i])) + Z1[i];
         t += h;
 
         sol.t[i] = t;
         sol.x[i] = x;        
     }
+
+    delete[] Z1;
 }
 
-void numeric_method::stoch_rk4_method(matrix& sol, size_t N)
+void numeric_method::stoch_rk4_method(matrix& sol, size_t N, float_T a, 
+    float_T x0, float_T tmin, float_T tmax)
 {
-    float_T x, k1, k2, k3, k4, a; // Координата, параметр
+    float_T x = x0, k1, k2, k3, k4; // Координата, параметр
     float_T sqrt_hd, _1_6; // Спец. константа 1, спец. константа 2
-    float_T h, h_2, t, tmin, tmax; // Шаг интегрирования, его половина, время, интервал интегрирования
+    float_T h, h_2, t; // Шаг интегрирования, его половина, время, интервал интегрирования
 
     // Создаём генератор случайных чисел со стандартным нормальным распределением
     std::random_device rd;
-    std::mt19937 gen(rd());
-    std::normal_distribution<float_T> norm_dist(0, 1);
-
-    // Ввод
-    std::ifstream input("input.txt");
-    input >> a >> x >> tmin >> tmax; // Параметр, начальное значение, интервал интегрирования
-    input.close();
+    boost::random::mt19937 gen(rd());
+    boost::normal_distribution<float_T> norm_dist(0, 1);
 
     // Расчет
     t = tmin;
@@ -179,7 +148,7 @@ void numeric_method::stoch_rk4_method(matrix& sol, size_t N)
     h_2 = h * 0.5, sqrt_hd = sqrt(h * D), _1_6 = 1.0 / 6;
 
     // Вектор случайных величин
-    vec_T Z1(N + 1);
+    vec_T Z1 = new float_T[N + 1];
     for (size_t i = 1; i <= N; ++i) {
         Z1[i] = sqrt_hd * norm_dist(gen);
     }
